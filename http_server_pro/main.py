@@ -2,7 +2,7 @@
 from .dependencies_checker import check_and_install_dependencies
 check_and_install_dependencies()
 
-from .class_handler import MyHandler, current_pin
+from .class_handler_copy import MyHandler, current_pin
 from .useful_fn import get_local_ip
 
 import os
