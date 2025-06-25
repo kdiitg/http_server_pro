@@ -1,4 +1,4 @@
-# 📡 HTTP Server PRO (V7.2)
+# 📡 HTTP Server PRO
 
 **HTTP Server PRO** is a simple GUI-based file-sharing app built with Python and Tkinter that lets you:
 

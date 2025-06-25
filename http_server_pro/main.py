@@ -265,8 +265,8 @@ def main():
     global root, folder_path, port_entry, selected_folder_label, server_button, ngrok_button, switch_button, url_label, qr_label, server_status_label
 
     root = tk.Tk()
-    root.title("📡 Local HTTP Server V7.2 PRO")
-    root.geometry("500x800")
+    root.title("📡 HTTP Server PRO")
+    root.geometry("500x700")
     root.resizable(False, False)
     root.configure(bg="#f8f8f8")
 

@@ -28,9 +28,9 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
-        "Pillow",
-        "qrcode",
-        "requests",
+        "Pillow~=11.2.1",
+        "qrcode~=8.2",
+        "requests~=2.32.4",
     ],
     entry_points={
         'console_scripts': [

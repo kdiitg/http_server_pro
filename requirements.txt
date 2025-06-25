@@ -1,3 +1,5 @@
-Pillow
-qrcode
-requests
+# This file is used to specify the dependencies for the project.
+
+Pillow==11.2.1
+qrcode==8.2
+requests==2.32.4
