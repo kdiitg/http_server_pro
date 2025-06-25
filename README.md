@@ -28,7 +28,7 @@
 ## Key Highlights:
 ### 🔒 PIN-Protected Access
 
-** A unique 4-digit PIN is generated each time the server starts. This PIN is required to: **
+**A unique 4-digit PIN is generated each time the server starts. This PIN is required to:**
 
 - Download files from the server
 - Upload files to the shared folder
