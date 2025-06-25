@@ -1,21 +1,100 @@
-# --- File: main.py ---
-from dependencies_checker import check_and_install_dependencies
+# --- Auto Dependency Installer ---
+import os
+import sys
+import subprocess
+
+def check_and_install_dependencies():
+    marker_path = os.path.expanduser("~/.http_server_deps_ok")
+
+    if os.path.exists(marker_path):
+        return  # Already installed
+
+    required = ["Pillow", "qrcode", "requests"]
+    missing = []
+
+    for pkg in required:
+        try:
+            __import__(pkg.lower() if pkg != "Pillow" else "PIL")
+        except ImportError:
+            missing.append(pkg)
+
+    if missing:
+        print(f"Installing missing packages: {missing}")
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", *missing])
+            with open(marker_path, "w") as f:
+                f.write("Dependencies installed.\n")
+            print("✅ All dependencies installed successfully.")
+        except Exception as e:
+            print("❌ Error installing dependencies:", e)
+            input("Press Enter to exit...")
+            sys.exit(1)
+
 check_and_install_dependencies()
 
 
-import os
+import socket
 import threading
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 import tkinter as tk
 from tkinter import filedialog, messagebox
-from http.server import HTTPServer
 from PIL import Image, ImageTk
 import qrcode
-import subprocess
 import requests
 import time
 
-from class_handler import MyHandler, current_pin
-from useful_fn import get_local_ip
+# --- Get local IP ---
+def get_local_ip():
+    ip = '127.0.0.1'
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('10.255.255.255', 1))
+        ip = s.getsockname()[0]
+    except:
+        pass
+    finally:
+        s.close()
+    return ip
+
+# --- HTTP handler ---
+class MyHandler(SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/favicon.ico':
+            self.send_response(200)
+            self.send_header('Content-Type', 'image/x-icon')
+            self.end_headers()
+            self.wfile.write(
+                b'\x00\x00\x01\x00\x01\x00\x10\x10\x00\x00\x01\x00\x04\x00'
+                b'\x28\x01\x00\x00\x16\x00\x00\x00\x16\x00\x00\x00\x00\x00'
+                b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+            )
+        else:
+            super().do_GET()
+
+    def list_directory(self, path):
+        try:
+            entries = os.listdir(path)
+        except OSError:
+            self.send_error(404, "No permission to list directory")
+            return None
+
+        if not entries:
+            self.send_response(200)
+            self.send_header("Content-type", "text/html; charset=utf-8")
+            self.end_headers()
+            message = f"""
+            <html>
+            <head><title>Empty Folder</title></head>
+            <body style='font-family: Arial; text-align: center;'>
+                <h2>📂 Folder is empty</h2>
+                <p>Path: {path}</p>
+            </body>
+            </html>
+            """
+            self.wfile.write(message.encode("utf-8"))
+            return None
+
+        return super().list_directory(path)
 
 # --- Globals ---
 server_instance = None
@@ -26,7 +105,6 @@ current_mode = "local"
 server_running = False
 ngrok_running = False
 
-# --- Start HTTP server ---
 def start_server(folder, port):
     global server_instance
     os.chdir(folder)
@@ -34,7 +112,6 @@ def start_server(folder, port):
     print(f"Serving HTTP on {get_local_ip()}:{port}")
     server_instance.serve_forever()
 
-# --- Start/Stop Server button ---
 def toggle_server():
     global server_thread, current_mode, server_running
     if not server_running:
@@ -117,7 +194,6 @@ def toggle_ngrok():
                     ngrok_url = t["public_url"]
                     break
         except Exception as e:
-            print("Error getting ngrok URL:", e)
             messagebox.showerror("Ngrok Error", "Unable to get ngrok URL. Is ngrok running?")
             return
         if ngrok_url:
@@ -134,10 +210,7 @@ def switch_url():
     if current_mode == "local":
         if ngrok_running and ngrok_url:
             url_label.config(text=ngrok_url)
-            # url = f"http://{ip}:{port}/?pin={current_pin}"
-            url_label.config(text=ngrok_url + f"?pin={current_pin}")
-            # Generate QR code for ngrok URL
-            generate_qr(ngrok_url + f"?pin={current_pin}")
+            generate_qr(ngrok_url)
             current_mode = "global"
             update_ui_state()
         else:
@@ -149,8 +222,7 @@ def switch_to_local():
     global current_mode
     port = int(port_entry.get())
     ip = get_local_ip()
-    # url = f"http://{ip}:{port}/"
-    url = f"http://{ip}:{port}/?pin={current_pin}"
+    url = f"http://{ip}:{port}/"
     url_label.config(text=url)
     generate_qr(url)
     current_mode = "local"
@@ -189,50 +261,60 @@ def update_ui_state():
         switch_button.config(state="disabled")
         server_status_label.config(text="🔴 Server stopped", fg="#f44336")
 
-# --- UI ---
-root = tk.Tk()
-root.title("📡 Local HTTP Server PRO")
-root.geometry("500x700")
-root.resizable(False, False)
-root.configure(bg="#f8f8f8")
+def main():
+    global root, folder_path, port_entry, selected_folder_label, server_button, ngrok_button, switch_button, url_label, qr_label, server_status_label
 
-folder_path = tk.StringVar()
+    root = tk.Tk()
+    root.title("📡 HTTP Server PRO")
+    root.geometry("500x700")
+    root.resizable(False, False)
+    root.configure(bg="#f8f8f8")
 
-tk.Label(root, text="🌍 HTTP Server PRO", font=("Arial", 18, "bold"), bg="#f8f8f8").pack(pady=10)
-tk.Label(root, text="Select Folder to Share:", font=("Arial", 12), bg="#f8f8f8").pack(pady=5)
-tk.Button(root, text="📂 Browse Folder", command=select_folder, font=("Arial", 12), bg="#4CAF50", fg="white").pack(pady=5)
+    folder_path = tk.StringVar()
 
-selected_folder_label = tk.Label(root, text="No folder selected", fg="#3333cc", bg="#f8f8f8", wraplength=440, justify="left")
-selected_folder_label.pack(pady=5)
+    tk.Label(root, text="🌍 HTTP Server PRO", font=("Arial", 18, "bold"), bg="#f8f8f8").pack(pady=10)
+    tk.Label(root, text="Select Folder to Share:", font=("Arial", 12), bg="#f8f8f8").pack(pady=5)
+    tk.Button(root, text="📂 Browse Folder", command=select_folder, font=("Arial", 12), bg="#4CAF50", fg="white").pack(pady=5)
 
-tk.Label(root, text="Enter Port:", font=("Arial", 12), bg="#f8f8f8").pack(pady=10)
-port_entry = tk.Entry(root, width=10, font=("Arial", 12), justify="center")
-port_entry.insert(0, "8000")
-port_entry.pack(pady=5)
+    selected_folder_label = tk.Label(root, text="No folder selected", fg="#3333cc", bg="#f8f8f8", wraplength=440, justify="left")
+    selected_folder_label.pack(pady=5)
 
-server_button = tk.Button(root, text="🚀 Start Server", command=toggle_server, font=("Arial", 14, "bold"), bg="#2196F3", fg="white", padx=10, pady=5)
-server_button.pack(pady=15)
+    tk.Label(root, text="Enter Port:", font=("Arial", 12), bg="#f8f8f8").pack(pady=10)
+    port_entry = tk.Entry(root, width=10, font=("Arial", 12), justify="center")
+    port_entry.insert(0, "8000")
+    port_entry.pack(pady=5)
 
-row_frame = tk.Frame(root, bg="#f8f8f8")
-row_frame.pack(pady=5)
+    server_button = tk.Button(root, text="🚀 Start Server", command=toggle_server, font=("Arial", 14, "bold"), bg="#2196F3", fg="white", padx=10, pady=5)
+    server_button.pack(pady=15)
 
-ngrok_button = tk.Button(row_frame, text="🌐 Start ngrok", command=toggle_ngrok, font=("Arial", 12), bg="#9c27b0", fg="white", padx=10, pady=5, state="disabled")
-ngrok_button.pack(side="left", padx=10)
+    row_frame = tk.Frame(root, bg="#f8f8f8")
+    row_frame.pack(pady=5)
 
-switch_button = tk.Button(row_frame, text="🌐 Switch to Global", command=switch_url, font=("Arial", 12), bg="#607d8b", fg="white", padx=10, pady=5, state="disabled")
-switch_button.pack(side="left", padx=10)
+    ngrok_button = tk.Button(row_frame, text="🌐 Start ngrok", command=toggle_ngrok, font=("Arial", 12), bg="#9c27b0", fg="white", padx=10, pady=5, state="disabled")
+    ngrok_button.pack(side="left", padx=10)
 
-tk.Label(root, text="📡 Current URL:", font=("Arial", 12), bg="#f8f8f8").pack(pady=10)
-url_label = tk.Label(root, text="", fg="#e91e63", font=("Arial", 12), bg="#f8f8f8", wraplength=440)
-url_label.pack(pady=5)
+    switch_button = tk.Button(row_frame, text="🌐 Switch to Global", command=switch_url, font=("Arial", 12), bg="#607d8b", fg="white", padx=10, pady=5, state="disabled")
+    switch_button.pack(side="left", padx=10)
 
-tk.Label(root, text="📱 QR Code:", font=("Arial", 12), bg="#f8f8f8").pack(pady=10)
-qr_label = tk.Label(root, bg="#f8f8f8")
-qr_label.pack(pady=10)
+    tk.Label(root, text="📡 Current URL:", font=("Arial", 12), bg="#f8f8f8").pack(pady=10)
+    url_label = tk.Label(root, text="", fg="#e91e63", font=("Arial", 12), bg="#f8f8f8", wraplength=440)
+    url_label.pack(pady=5)
 
-server_status_label = tk.Label(root, text="🔴 Server stopped", font=("Arial", 12), bg="#f8f8f8", fg="#f44336")
-server_status_label.pack(pady=10)
+    tk.Label(root, text="📱 QR Code:", font=("Arial", 12), bg="#f8f8f8").pack(pady=10)
+    qr_label = tk.Label(root, bg="#f8f8f8")
+    qr_label.pack(pady=10)
 
-tk.Label(root, text="Created by Kuldeep Singh 🤖 V7.2 PRO", font=("Arial", 10), fg="#888888", bg="#f8f8f8").pack(side="bottom", pady=10)
+    server_status_label = tk.Label(root, text="🔴 Server stopped", font=("Arial", 12), bg="#f8f8f8", fg="#f44336")
+    server_status_label.pack(pady=10)
 
-root.mainloop()
+    tk.Label(root, text="Created by Kuldeep Singh 🤖 V7.2 PRO", font=("Arial", 10), fg="#888888", bg="#f8f8f8").pack(side="bottom", pady=10)
+
+    root.mainloop()
+
+# Entry point for pip or command-line usage
+def start():
+    main()
+
+# Optional: allow `python main.py` run directly for dev
+if __name__ == "__main__":
+    start()

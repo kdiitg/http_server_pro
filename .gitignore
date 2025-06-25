@@ -9,3 +9,4 @@ build/
 dist/
 *.egg-info/
 http_server_pro.egg-info/
+__version__.py
