@@ -4,7 +4,7 @@ import os
 import uuid
 import html
 from http.server import SimpleHTTPRequestHandler
-from useful_fn import format_size  # Import shared utility
+from .useful_fn import format_size  # Import shared utility
 
 from http import cookies
 import random
