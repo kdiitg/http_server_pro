@@ -6,7 +6,7 @@ long_description = (this_directory / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="http_server_pro",
-    version="7.2",
+    version="7.2.1",
     description="A Local HTTP File Server with ngrok & QR support",
     long_description=long_description,
     long_description_content_type="text/markdown",
