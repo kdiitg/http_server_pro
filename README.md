@@ -22,20 +22,19 @@
 
 
 ## 🔐 Secure File Sharing with PIN (New!)
-HTTP Server PRO now includes built-in security for file sharing. 
-Both uploads and downloads are protected using a 4-digit PIN.
+- HTTP Server PRO now includes built-in security for file sharing. Both uploads and downloads are protected using a 4-digit PIN.
 ---
 
 ## Key Highlights:
 ### 🔒 PIN-Protected Access
 
-*** A unique 4-digit PIN is generated each time the server starts. This PIN is required to: ***
+** A unique 4-digit PIN is generated each time the server starts. This PIN is required to: **
 
 - Download files from the server
 - Upload files to the shared folder
 
 ### 📱 QR Code with Auto Authentication
-- Scanning the QR code includes the PIN in the link (e.g., http://192.168.1.10:8000/?pin=1234), so no manual entry is needed.
+- Scanning the QR code includes the PIN in the link, so no manual entry is needed.
 
 ### 🌍 Secure Over LAN or ngrok
 - PIN protection applies whether you're sharing locally or publicly via ngrok.
