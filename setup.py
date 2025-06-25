@@ -11,9 +11,9 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="Kuldeep Singh",
-    author_email="kdiitg@gmail.com",  # ← optional but good
-    url="https://github.com/kdiitg/http_server_pro",  # ✅ Add this
-    project_urls={  # ✅ Optional extras
+    author_email="kdiitg@gmail.com",
+    url="https://github.com/kdiitg/http_server_pro",
+    project_urls={
         "Documentation": "https://github.com/kdiitg/http_server_pro",
         "Source": "https://github.com/kdiitg/http_server_pro",
         "Bug Tracker": "https://github.com/kdiitg/http_server_pro/issues"
@@ -34,7 +34,7 @@ setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
-        "Topic :: Internet :: File Transfer Protocol (FTP)",  # optional
+        "Topic :: Internet :: File Transfer Protocol (FTP)",  
         "Topic :: Utilities",
     ],
     python_requires='>=3.7',
