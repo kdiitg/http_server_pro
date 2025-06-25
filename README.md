@@ -22,16 +22,18 @@
 ---
 
 ## 📦 Installation
-
 ```bash
 pip install http_server_pro
+```
+## 🧠 Usage
 
-🧠 Usage
-Option 1: From Python code
+### Option 1: From Python code
 
-    import http_server_pro
-    http_server_pro.start()
+```python
+import http_server_pro
+http_server_pro.start()
+```
+### Option 2: From terminal
+```bash
+http_server_pro
 
-Option 2: From terminal (after installation)
-
-    http_server_pro
