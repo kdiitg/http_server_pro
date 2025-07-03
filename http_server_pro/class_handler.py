@@ -4,7 +4,7 @@ import os
 import uuid
 import html
 from http.server import SimpleHTTPRequestHandler
-from .useful_fn import format_size  # Import shared utility
+from useful_fn import format_size  # Import shared utility
 
 from http import cookies
 import random
@@ -96,7 +96,7 @@ class MyHandler(SimpleHTTPRequestHandler):
                 b'\x28\x01\x00\x00\x16\x00\x00\x00\x16\x00\x00\x00\x00\x00'
                 b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
             )
-        elif self.path == '/upload':
+        elif self.path.endswith('/upload'):
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             self.end_headers()
@@ -142,7 +142,7 @@ class MyHandler(SimpleHTTPRequestHandler):
             <body>
                 <h2>Upload Files to Server</h2>
                 <div class="upload-box">
-                    <form enctype="multipart/form-data" method="post">
+                    <form id="uploadForm" enctype="multipart/form-data" method="post">
                         <input type="file" name="file" required><br>
                         <input type="submit" value="Upload File">
                     </form>
@@ -157,7 +157,14 @@ class MyHandler(SimpleHTTPRequestHandler):
             super().do_GET()
 
     def do_POST(self):
-        if self.path == '/upload':
+        if self.path.endswith('/upload'):
+            # Remove '/upload' from the path to get the target directory
+            dir_path = self.path[:-7]  # '/CRDT/upload' -> '/CRDT'
+            if not dir_path or dir_path == "/":
+                full_path = self.translate_path("/")
+            else:
+                full_path = self.translate_path(dir_path)
+
             content_length = int(self.headers.get('Content-Length', 0))
             content_type = self.headers.get('Content-Type')
             boundary = content_type.split("boundary=")[-1].encode()
@@ -182,7 +189,7 @@ class MyHandler(SimpleHTTPRequestHandler):
                         filename = f"{base}_{count}{ext}"
                         count += 1
 
-                    with open(filename, "wb") as f:
+                    with open(os.path.join(full_path, filename), "wb") as f:
                         f.write(file_data)
                         saved_files += 1
 
@@ -275,7 +282,7 @@ class MyHandler(SimpleHTTPRequestHandler):
             </head>
             <body>
                 <h2>📁 Shared Folder</h2>
-                <a href="/upload" class="upload-btn">📤 Upload Files</a>
+                <a href="/upload" class="upload-btn">Upload Files</a>
                 <hr>
                 <table>
                     <tr><th>Name</th><th>Size</th></tr>
@@ -305,3 +312,17 @@ class MyHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(encoded)
         return None
+    
+    def translate_path(self, path):
+        # Convert URL path to full file path
+        full_path = super().translate_path(path)
+
+        # Optional: print full path
+        print(f"[📂] Full file path: {full_path}")
+
+        # Optional: print folder/subfolder being accessed
+        folder = os.path.dirname(full_path)
+        rel_folder = os.path.relpath(folder, os.getcwd())
+        print(f"[📁] Accessing subfolder: {rel_folder}")
+
+        return full_path

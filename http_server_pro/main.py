@@ -1,9 +1,16 @@
 # --- File: main.py ---
-from .dependencies_checker import check_and_install_dependencies
+try:
+    from .dependencies_checker import check_and_install_dependencies
+except Exception as e:
+    from dependencies_checker import check_and_install_dependencies
 check_and_install_dependencies()
 
-from .class_handler_copy import MyHandler, current_pin
-from .useful_fn import get_local_ip
+try:
+    from .handler_fixed import MyHandler, current_pin
+    from .useful_fn import get_local_ip
+except Exception as e:
+    from handler_fixed import MyHandler, current_pin
+    from useful_fn import get_local_ip
 
 import os
 import threading
@@ -58,6 +65,13 @@ def toggle_server():
                 <body style='font-family: Arial; text-align: center;'>
                     <h1>🚀 Welcome to my local HTTP server!</h1>
                     <p>Serving folder: {folder}</p>
+                    <form id="uploadForm" enctype="multipart/form-data" method="post">
+                        <input type="file" name="file" required><br>
+                        <input type="submit" value="Upload File">
+                    </form>
+                    <script>
+                        document.getElementById("uploadForm").action = window.location.pathname;
+                    </script>
                 </body>
                 </html>
                 """)

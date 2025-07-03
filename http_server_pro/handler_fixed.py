@@ -1,18 +1,19 @@
 # --- File: class_handler.py ---
 
 import os
-import urllib
-from pathlib import Path
 import uuid
 import html
 from http.server import SimpleHTTPRequestHandler
-from .useful_fn import format_size  # Import shared utility
-
 from http import cookies
 import random
 
+try:
+    from .useful_fn import format_size
+except Exception as e:
+    from useful_fn import format_size  # Import shared utility
+
+
 current_pin = f"{random.randint(1000, 9999)}"
-print(f"Access PIN is: {current_pin}")
 
 class MyHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
@@ -41,7 +42,6 @@ class MyHandler(SimpleHTTPRequestHandler):
 
         # If still not valid
         if not session_ok and self.path not in ["/favicon.ico", "/pin"]:
-
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
             self.end_headers()
@@ -86,82 +86,57 @@ class MyHandler(SimpleHTTPRequestHandler):
                 </body>
                 </html>
                 """.encode("utf-8"))
-
             return
 
         if self.path == '/favicon.ico':
             self.send_response(200)
             self.send_header('Content-Type', 'image/x-icon')
             self.end_headers()
-            self.wfile.write(
-                b'\x00\x00\x01\x00\x01\x00\x10\x10\x00\x00\x01\x00\x04\x00'
-                b'\x28\x01\x00\x00\x16\x00\x00\x00\x16\x00\x00\x00\x00\x00'
-                b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-            )
-        elif self.path == '/upload':
+            self.wfile.write(b'')
+        elif self.path.endswith('/upload'):
+            base_path = self.path[:-7] or "/"
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             self.end_headers()
-            html = """
+            html_form = f"""
             <!DOCTYPE html>
             <html>
             <head>
                 <title>Upload File</title>
                 <meta name="viewport" content="width=device-width, initial-scale=0.9">
                 <style>
-                    body {
-                        font-family: Arial, sans-serif;
-                        text-align: center;
-                        padding: 20px;
-                    }
-                    .upload-box {
-                        border: 2px dashed #ccc;
-                        border-radius: 10px;
-                        padding: 30px;
-                        background-color: #f9f9f9;
-                        max-width: 90%;
-                        margin: auto;
-                    }
-                    input[type="file"] {
-                        font-size: 18px;
-                        padding: 12px;
-                        margin-bottom: 20px;
-                    }
-                    input[type="submit"] {
-                        font-size: 18px;
-                        padding: 12px 30px;
-                        background-color: #4CAF50;
-                        color: white;
-                        border: none;
-                        border-radius: 5px;
-                        cursor: pointer;
-                    }
-                    input[type="submit"]:hover {
-                        background-color: #45a049;
-                    }
+                    body {{ font-family: Arial, sans-serif; text-align: center; padding: 20px; }}
+                    .upload-box {{ border: 2px dashed #ccc; border-radius: 10px; padding: 30px; background-color: #f9f9f9; max-width: 90%; margin: auto; }}
+                    input[type="file"] {{ font-size: 18px; padding: 12px; margin-bottom: 20px; }}
+                    input[type="submit"] {{ font-size: 18px; padding: 12px 30px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }}
+                    input[type="submit"]:hover {{ background-color: #45a049; }}
                 </style>
             </head>
             <body>
                 <h2>Upload Files to Server</h2>
                 <div class="upload-box">
-                    <form enctype="multipart/form-data" method="post">
+                    <form id="uploadForm" enctype="multipart/form-data" method="post" action="{html.escape(self.path)}">
                         <input type="file" name="file" required><br>
                         <input type="submit" value="Upload File">
                     </form>
                 </div>
-                <p><a href="/">Back to Home</a></p>
+                <p><a href="{html.escape(base_path)}">Back to Folder</a></p>
             </body>
             </html>
             """
-            self.wfile.write(html.encode("utf-8"))
+            self.wfile.write(html_form.encode("utf-8"))
             return
         else:
             super().do_GET()
 
-    
-
     def do_POST(self):
         if self.path.endswith('/upload'):
+            dir_path = self.path[:-7]
+            if not dir_path or dir_path == "/":
+                full_path = self.translate_path("/")
+            else:
+                full_path = self.translate_path(dir_path)
+
             content_length = int(self.headers.get('Content-Length', 0))
             content_type = self.headers.get('Content-Type')
             boundary = content_type.split("boundary=")[-1].encode()
@@ -169,18 +144,11 @@ class MyHandler(SimpleHTTPRequestHandler):
             parts = data.split(b"--" + boundary)
             saved_files = 0
 
-            # Parse folder from URL
-            upload_dir = self.path.rsplit('/upload', 1)[0]
-            upload_dir = urllib.parse.unquote(upload_dir.strip("/"))  # e.g. subfolder
-            upload_path = os.path.join(os.getcwd(), upload_dir)
-            os.makedirs(upload_path, exist_ok=True)
-
             for part in parts:
                 if b'Content-Disposition:' in part:
                     header, file_data = part.split(b"\r\n\r\n", 1)
                     header = header.decode()
                     file_data = file_data.rstrip(b"\r\n--")
-
                     filename = "upload_" + uuid.uuid4().hex
                     for line in header.split("\r\n"):
                         if "filename=" in line:
@@ -188,13 +156,15 @@ class MyHandler(SimpleHTTPRequestHandler):
                             break
 
                     base, ext = os.path.splitext(filename)
-                    target_file = os.path.join(upload_path, filename)
                     count = 1
-                    while os.path.exists(target_file):
-                        target_file = os.path.join(upload_path, f"{base}_{count}{ext}")
+                    save_path = os.path.join(full_path, filename)
+                    while os.path.exists(save_path):
+                        filename = f"{base}_{count}{ext}"
+                        save_path = os.path.join(full_path, filename)
                         count += 1
 
-                    with open(target_file, "wb") as f:
+                    print(f"[📤] Saving to: {save_path}")
+                    with open(save_path, "wb") as f:
                         f.write(file_data)
                         saved_files += 1
 
@@ -214,27 +184,10 @@ class MyHandler(SimpleHTTPRequestHandler):
             </head>
             <body>
                 <h2>{saved_files} file(s) uploaded successfully!</h2>
-                <a href='/'>Go back to Home</a>
+                <a href='{html.escape(dir_path or "/")}'>Go back to Folder</a>
             </body>
             </html>
             """.encode())
-
-        else:
-            # PIN submission
-            length = int(self.headers.get("Content-Length", 0))
-            data = self.rfile.read(length).decode()
-            pin_value = data.split("pin=")[-1]
-
-            if pin_value == current_pin:
-                self.send_response(302)
-                self.send_header("Location", "/")
-                self.send_header("Set-Cookie", f"access={current_pin}; Path=/")
-                self.end_headers()
-            else:
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html")
-                self.end_headers()
-                self.wfile.write(b"<h3>Incorrect PIN. Try again.</h3>")
 
     def list_directory(self, path):
         try:
@@ -245,6 +198,7 @@ class MyHandler(SimpleHTTPRequestHandler):
 
         f = []
         displaypath = html.escape(self.path)
+        upload_link = self.path.rstrip("/") + "/upload"
         f.append(f"""
             <!DOCTYPE html>
             <html>
@@ -252,42 +206,17 @@ class MyHandler(SimpleHTTPRequestHandler):
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>📁 File Share</title>
                 <style>
-                    body {{
-                        font-family: Arial, sans-serif;
-                        padding: 20px;
-                        text-align: center;
-                    }}
-                    h2 {{
-                        margin-bottom: 10px;
-                    }}
-                    a.upload-btn {{
-                        display: inline-block;
-                        margin-bottom: 20px;
-                        padding: 12px 24px;
-                        font-size: 18px;
-                        background-color: #2196F3;
-                        color: white;
-                        text-decoration: none;
-                        border-radius: 6px;
-                    }}
-                    a.upload-btn:hover {{
-                        background-color: #0b7dda;
-                    }}
-                    table {{
-                        width: 100%;
-                        border-collapse: collapse;
-                        margin-top: 10px;
-                    }}
-                    th, td {{
-                        text-align: left;
-                        padding: 8px;
-                        border-bottom: 1px solid #ddd;
-                    }}
+                    body {{ font-family: Arial, sans-serif; padding: 20px; text-align: center; }}
+                    h2 {{ margin-bottom: 10px; }}
+                    a.upload-btn {{ display: inline-block; margin-bottom: 20px; padding: 12px 24px; font-size: 18px; background-color: #2196F3; color: white; text-decoration: none; border-radius: 6px; }}
+                    a.upload-btn:hover {{ background-color: #0b7dda; }}
+                    table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+                    th, td {{ text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }}
                 </style>
             </head>
             <body>
                 <h2>📁 Shared Folder</h2>
-                <a href="/upload" class="upload-btn">📤 Upload Files</a>
+                <a href="{html.escape(upload_link)}" class="upload-btn">Upload Files</a>
                 <hr>
                 <table>
                     <tr><th>Name</th><th>Size</th></tr>
@@ -303,7 +232,6 @@ class MyHandler(SimpleHTTPRequestHandler):
             size = os.path.getsize(fullname)
             size_str = format_size(size)
             f.append(f"<tr><td><a href=\"{html.escape(linkname)}\">{html.escape(displayname)}</a></td><td>{size_str}</td></tr>")
-
 
         f.append("""
                 </table>
